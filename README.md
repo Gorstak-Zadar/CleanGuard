@@ -1,60 +1,39 @@
-﻿<!-- description: Gorstak Windows helper repo: CleanGuard - read the README before enabling anything aggressive. -->
+<!-- description: FileSystemWatcher on C:\ for exe/dll/sys/winmd: CIRCL + MalwareBazaar + MS sig; quarantines unknown unsigned outside Program Files—high false-positive risk. -->
 
-# 🛡️ CleanGuard
+# CleanGuard
 
-> Real-time **file monitor** for `.exe`, `.dll`, `.sys`, `.winmd` — uses CIRCL (whitelist) and MalwareBazaar (blacklist), **no VirusTotal**.
+Single script **`CleanGuard.ps1`**: a **`FileSystemWatcher`** on **`C:\`** (recursive) for **`.exe`**, **`.dll`**, **`.sys`**, **`.winmd`**. On each create/change it hashes the file and:
 
----
+1. **Skips** if [CIRCL hashlookup](https://hashlookup.circl.lu/) reports high trust **or** the file is **Authenticode-valid** and signed by **Microsoft** (subject / thumbprint heuristics).
+2. **Quarantines** if the SHA-256 is known in **[MalwareBazaar](https://bazaar.abuse.ch/)** via their API.
+3. **Quarantines** anything **not** caught above that lives **outside** `C:\Windows`, `C:\Program Files`, `C:\Program Files (x86)`, and `C:\WindowsApps` — treated as “unsigned suspicious” (the script does **not** require MalwareBazaar hit for this path).
+4. **Logs only** if unsigned but under those system/install folders.
 
-## ✨ Features
+Quarantine **moves** the file to **`C:\Quarantine\CleanGuard`** with a timestamp, copies a **`.bak`** to **`C:\ProgramData\CleanGuard\Backup`**, logs to **`C:\ProgramData\CleanGuard\log.txt`**, and can show a **MessageBox** on quarantine. An **`Undo-LastQuarantine`** function exists (reads **`C:\Quarantine\CleanGuard\.last`**) but is **not** bound to a parameter—you must **dot-source** and call it manually from the same session if you use it.
 
-| Feature | Description |
-|---------|-------------|
-| 🔍 **File Monitoring** | Watches for new/changed executables and DLLs |
-| 📦 **CIRCL Lookup** | Trust score via [hashlookup.circl.lu](https://hashlookup.circl.lu/) |
-| 🚫 **MalwareBazaar** | Blacklist lookup via [abuse.ch](https://bazaar.abuse.ch/) |
-| ✅ **Microsoft Signed** | Skips validation for Microsoft-signed files |
-| 📥 **Quarantine** | Auto-quarantines detected threats with backup |
+The script hides the console and loops forever (intended for **Task Scheduler** or long-running host).
 
 ---
 
-## 📋 Requirements
+## Requirements
 
-| Requirement | Details |
-|-------------|---------|
-| **OS** | Windows 10/11 |
-| **PowerShell** | 5.1+ |
-| **Network** | Internet for hash lookups |
+- Windows with PowerShell, outbound HTTPS for CIRCL and MalwareBazaar.
+- Expect **heavy disk churn** and **API rate** considerations if many files change under `C:\`.
 
 ---
 
-## 🚀 Usage
+## Risks (read before running)
+
+- Monitoring **the entire `C:\` tree** is aggressive; builds, installers, and user tools outside “Program Files” may be **quarantined** even when benign.
+- This is **not** a full AV product: missed malware and false positives are both possible.
+
+---
+
+## Usage
 
 ```powershell
 .\CleanGuard.ps1
 ```
-
----
-
-## 📁 Paths
-
-| Path | Purpose |
-|------|---------|
-| `C:\Quarantine\CleanGuard` | Quarantined files |
-| `C:\ProgramData\CleanGuard\Backup` | Backup copies before quarantine |
-| `C:\ProgramData\CleanGuard\log.txt` | Log file |
-
----
-
-## 🔄 Undo Last Quarantine
-
-Run `.\CleanGuard.ps1` with the Undo-LastQuarantine function (or use the provided shortcut if available).
-
----
-
-<p align="center">
-  <sub>🛡️ Gorstak Antivirus Tooling</sub>
-</p>
 
 ---
 
